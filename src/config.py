@@ -14,7 +14,7 @@ CHECKOUT_URL = f"{BASE_URL}/checkout"
 PRODUCT_URL = os.getenv("PRODUCT_URL", f"{BASE_URL}/products/1443/BAZBON-Label-Plan-Series-1%2F8-Action-Figure")
 
 POPMART_USERNAME = os.getenv("POPMART_USERNAME", "fake")
-POPMART_PASSWORD = os.getenv("POPMART_USERNAME", "fake")
+POPMART_PASSWORD = os.getenv("POPMART_PASSWORD", "fake")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"

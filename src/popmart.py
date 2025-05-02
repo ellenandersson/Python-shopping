@@ -59,7 +59,7 @@ class PopMartBot:
             print("🔐 Navigating to login page.")
             self.driver.get(LOGIN_URL)
             
-            self._accept_cookies(self.driver)
+            self._accept_cookies()
             
             # Look for common email field patterns
             print("🔍 Finding email field.")
@@ -171,6 +171,9 @@ class PopMartBot:
                 # Wait for redirect after login (either to homepage or dashboard)
                 try:
                     self.wait.until(EC.url_changes(LOGIN_URL))
+                    if self.driver.current_url == LOGIN_URL:
+                        print("❌ Still on login page after clicking submit.")
+                        return False
                     print("✅ Login successful! Redirected from login page.")
                 except Exception:
                     # Sometimes the URL might not change on successful login
@@ -182,9 +185,7 @@ class PopMartBot:
                         print("✅ Login successful! Found account-related elements.")
                     except Exception as e:
                         print(f"⚠️ Could not confirm successful login: {e}")
-                        # We'll assume login succeeded and continue
                 
-                # Set cookies from browser session to requests session
                 selenium_cookies = self.driver.get_cookies()
                 for cookie in selenium_cookies:
                     self.session.cookies.set(cookie['name'], cookie['value'])
@@ -192,12 +193,10 @@ class PopMartBot:
                 return True
             else:
                 print("❌ Login button not found.")
-                self.cleanup()  # Clean up on critical failure
                 return False
                 
         except Exception as e:
             print(f"🚨 Login failed: {e}")
-            self.cleanup()  # Clean up on critical failure
             return False
 
     def check_product(self):
@@ -414,39 +413,53 @@ class PopMartBot:
                         print(f"Found potential banner with selector: {selector}")
                         
                         # Try different approaches to find and click buttons
-                        # 1. Try direct XPath with text for accept buttons
-                        for text in accept_texts:
-                            try:
-                                xpath = f"//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{text}')]"
-                                buttons = WebDriverWait(self.driver, 1).until(
-                                    EC.presence_of_all_elements_located((By.XPATH, xpath))
-                                )
-                                if buttons:
-                                    # Use JavaScript click to avoid interception
-                                    self.driver.execute_script("arguments[0].click();", buttons[0])
-                                    print(f"✅ Clicked accept button with text: {text}")
-                                    time.sleep(1)  # Wait for banner to disappear
-                                    break
-                            except Exception:
-                                continue
-                                
-                        # 2. If no text buttons worked, try any buttons within the banner
+                        # 1. Look specifically for the policy_acceptBtn class
                         try:
-                            for banner in banners:
-                                # Use JavaScript to find buttons inside the banner
-                                buttons = self.driver.execute_script(
-                                    "return arguments[0].querySelectorAll('button, .button, [role=\"button\"]');", 
-                                    banner
-                                )
-                                if buttons:
-                                    self.driver.execute_script("arguments[0].click();", buttons[0])
-                                    print("✅ Clicked first button in banner")
-                                    time.sleep(1)
-                                    break
+                            accept_button = WebDriverWait(self.driver, 1).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, ".policy_acceptBtn__7NU1, [class*='policy_acceptBtn']"))
+                            )
+                            self.driver.execute_script("arguments[0].click();", accept_button)
+                            print("✅ Clicked accept button with policy_acceptBtn class")
+                            time.sleep(1)
+                            return
                         except Exception:
-                            pass
+                            # 2. Try direct XPath with text for accept buttons 
+                            for text in accept_texts:
+                                try:
+                                    # Make sure it can find buttons with text "ACCEPT" or "accept"
+                                    xpath = f"//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{text}')]"
+                                    # Also look for div elements that might be acting as buttons
+                                    xpath_div = f"//*[contains(@class, 'button') or contains(@class, 'btn')][contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{text}')]"
+                                    
+                                    buttons = WebDriverWait(self.driver, 1).until(
+                                        EC.presence_of_all_elements_located((By.XPATH, f"{xpath} | {xpath_div}"))
+                                    )
+                                    if buttons:
+                                        # Use JavaScript click to avoid interception
+                                        self.driver.execute_script("arguments[0].click();", buttons[0])
+                                        print(f"✅ Clicked accept button with text: {text}")
+                                        time.sleep(1)  # Wait for banner to disappear
+                                        break
+                                except Exception:
+                                    continue
+                                    
+                            # 3. If no text buttons worked, try any buttons within the banner
+                            try:
+                                for banner in banners:
+                                    # Use JavaScript to find buttons inside the banner
+                                    buttons = self.driver.execute_script(
+                                        "return arguments[0].querySelectorAll('button, .button, [role=\"button\"], [class*=\"accept\"], [class*=\"btn\"]');", 
+                                        banner
+                                    )
+                                    if buttons:
+                                        self.driver.execute_script("arguments[0].click();", buttons[0])
+                                        print("✅ Clicked first button in banner")
+                                        time.sleep(1)
+                                        break
+                            except Exception:
+                                pass
                         
-                        # 3. As a last resort, try to hide the banner with JavaScript
+                        # 4. As a last resort, try to hide the banner with JavaScript
                         try:
                             self.driver.execute_script(
                                 f"document.querySelectorAll('{selector}').forEach(el => el.style.display = 'none');"
