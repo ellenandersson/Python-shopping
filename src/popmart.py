@@ -14,17 +14,123 @@ from utils.helpers import parse_response
 class PopMartBot:
     def __init__(self):
         self.session = requests.Session()
+        self.driver = None
+        self.wait = None
+        self._initialize_driver()
+        
+    def _initialize_driver(self):
+        """Initialize the WebDriver to be used throughout the entire bot session"""
+        options = Options()
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        # Turn on --headless if you wanna run it in the background
+        # options.add_argument("--headless")
+
+        self.driver = webdriver.Chrome(options=options)
+        self.wait = WebDriverWait(self.driver, 10)
+
+        stealth(self.driver,
+            languages=["en-US", "en"],
+            vendor="Google Inc.",
+            platform="Linux",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+        )
+        
+    def cleanup(self):
+        """Clean up resources when bot is done or encounters a fatal error"""
+        if self.driver:
+            try:
+                self.driver.quit()
+            except:
+                pass
+            finally:
+                self.driver = None
+                self.wait = None
 
     def login(self):
-        payload = {
-            'username': USERNAME,
-            'password': PASSWORD
-        }
-        response = self.session.post(LOGIN_URL, data=payload)
-        return response.ok
+        """Log in to the website using the shared WebDriver instance"""
+        if not self.driver:
+            self._initialize_driver()
+            
+        try:
+            print("🔐 Navigating to login page...")
+            self.driver.get(LOGIN_URL)
+            
+            # Look for common username/email field patterns
+            print("🔍 Finding username field...")
+            username_field = self.wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 
+                    "input[type='email'], input[name='email'], input[id*='email'], input[name='username'], input[id*='username']"))
+            )
+            
+            # Look for password field
+            print("🔍 Finding password field...")
+            password_field = self.wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']"))
+            )
+            
+            # Fill in credentials
+            print("✏️ Entering credentials...")
+            username_field.clear()
+            username_field.send_keys(POPMART_USERNAME)
+            password_field.clear()
+            password_field.send_keys(POPMART_PASSWORD)
+            
+            # Find and click login button using XPath instead of unsupported CSS :contains()
+            print("🔍 Finding login button...")
+            # Try multiple XPath patterns for login buttons
+            login_button_xpath_patterns = [
+                "//button[@type='submit']",
+                "//input[@type='submit']",
+                "//button[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'login')]",
+                "//button[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'sign in')]",
+                "//button[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'log in')]",
+                "//a[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'login')]",
+                "//a[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'sign in')]"
+            ]
+            
+            login_button = None
+            for xpath in login_button_xpath_patterns:
+                buttons = self.driver.find_elements(By.XPATH, xpath)
+                if buttons:
+                    login_button = buttons[0]
+                    break
+            
+            if login_button:
+                print("🖱️ Clicking login button...")
+                login_button.click()
+                
+                # Wait for redirect after login (either to homepage or dashboard)
+                # This confirms successful login
+                self.wait.until(
+                    EC.url_changes(LOGIN_URL)
+                )
+                
+                print("✅ Login successful!")
+                
+                # Set cookies from browser session to requests session
+                selenium_cookies = self.driver.get_cookies()
+                for cookie in selenium_cookies:
+                    self.session.cookies.set(cookie['name'], cookie['value'])
+                
+                return True
+            else:
+                print("❌ Login button not found.")
+                self.cleanup()  # Clean up on critical failure
+                return False
+                
+        except Exception as e:
+            print(f"🚨 Login failed: {e}")
+            self.cleanup()  # Clean up on critical failure
+            return False
 
     def check_product(self):
+        """Check if the product is available using both the driver and requests"""
         try:
+            # First try with requests for speed
             response = requests.get(PRODUCT_URL, headers=HEADERS, timeout=10)
             if response.status_code != 200:
                 print(f"Error when fetching product: {response.status_code}")
@@ -38,6 +144,12 @@ class PopMartBot:
             
             if buy_buttons:
                 print("✅ Product in stock (buy button found).")
+                
+                # If we found it with requests, navigate there with the driver to prepare for purchase
+                if self.driver:
+                    print("🔄 Navigating to product page to prepare for purchase...")
+                    self.driver.get(PRODUCT_URL)
+                    
                 return True
             else:
                 print("❌ Still not in stock (no buy button).")
@@ -49,40 +161,30 @@ class PopMartBot:
         
         
     def buy_product(self):
-        options = Options()
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        # Turn on --headless if you wanna run it in the background
-        # options.add_argument("--headless")
-
-        driver = webdriver.Chrome(options=options)
-
-        stealth(driver,
-            languages=["en-US", "en"],
-            vendor="Google Inc.",
-            platform="Linux",
-            webgl_vendor="Intel Inc.",
-            renderer="Intel Iris OpenGL Engine",
-            fix_hairline=True,
-        )
+        """Buy the product using the shared WebDriver instance"""
+        if not self.driver:
+            print("❌ No active browser session. Please login first.")
+            return False
 
         try:
-            print("🛒 Open product page")
-            driver.get(PRODUCT_URL)
-            
-            # Wait for page to load
-            wait = WebDriverWait(driver, 10)
+            # Assume we're already on the product page from check_product
+            # If not, navigate there
+            if PRODUCT_URL not in self.driver.current_url:
+                print("🛒 Opening product page")
+                self.driver.get(PRODUCT_URL)
+                
+            # Wait for page to fully load
+            time.sleep(1)
             
             # Handle variant selection dynamically
-            self._select_variant(driver, wait)
+            self._select_variant(self.driver, self.wait)
             
             # Handle quantity adjustment dynamically
-            self._adjust_quantity(driver, wait)
+            self._adjust_quantity(self.driver, self.wait)
             
             # Find and click buy button - using text content for more reliability
             print("🔎 Finding purchase button.")
-            buy_buttons = wait.until(
+            buy_buttons = self.wait.until(
                 EC.presence_of_all_elements_located((By.CSS_SELECTOR, BUY_BUTTON_SELECTOR))
             )
             
@@ -98,27 +200,27 @@ class PopMartBot:
                 raise Exception("Buy button not found")
 
             # Wait for cart update
-            wait.until(
+            self.wait.until(
                 EC.url_contains("shoppingCart")
             )
 
             # Go to checkout
-            driver.get(CHECKOUT_URL)
+            self.driver.get(CHECKOUT_URL)
 
             # Wait for checkout page to load
-            wait.until(
+            self.wait.until(
                 EC.url_contains("checkout")
             )
             
             print("🛒 At checkout.")
+            
+            # Don't quit the driver here - let main program decide when to quit
             return True
 
         except Exception as e:
             print(f"🚨 Something went wrong: {e}")
+            # Don't clean up on purchase failure - might be temporary
             return False
-
-        finally:
-            driver.quit()
 
     def _adjust_quantity_with_buttons(self, driver, wait):
         """Adjust quantity using + and - buttons when direct input is not possible"""
@@ -170,7 +272,6 @@ class PopMartBot:
             self._adjust_quantity_with_buttons(driver, wait)
         except Exception as e:
             print(f"⚠️ Specialized quantity adjustment failed: {e}")
-            # Fall back to the original method
     
     def _select_variant(self, driver, wait):
         """Dynamically detect and select product variants (size, color, etc.)"""

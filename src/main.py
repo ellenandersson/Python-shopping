@@ -5,22 +5,27 @@ import time
 import random
 
 def main():
-    # Create bot without config (it now imports directly from config.py)
-    bot = ShoppingBot()
+    shoppingBot = ShoppingBot(STORE)
     
-    # Login with credentials from config
-    if bot.login():
-        while True:
-            if bot.check_product():
-                if bot.buy_product():
-                    print("✅ Product purchased successfully!")
-                    break
-            sleep_time = random.randint(CHECK_INTERVAL_MIN, CHECK_INTERVAL_MAX)
-            print(f"⏳ Wait {sleep_time} seconds until next check.")
-            time.sleep(sleep_time)
-    else:
-        print("❌ Login failed. Please check your credentials.")
-        return
+    try:
+        if shoppingBot.login():
+            print("✅ Login successful")
+            while True:
+                if shoppingBot.check_product():
+                    if shoppingBot.buy_product():
+                        print("✅ Product purchased successfully!")
+                        break
+                sleep_time = random.randint(CHECK_INTERVAL_MIN, CHECK_INTERVAL_MAX)
+                print(f"⏳ Wait {sleep_time} seconds until next check.")
+                time.sleep(sleep_time)
+        else:
+            print("❌ Login failed. Please check your credentials.")
+            return
+    finally:
+        # Make sure to clean up browser resources even if we exit with an error
+        if shoppingBot and shoppingBot.bot:
+            shoppingBot.bot.cleanup()
+            print("🧹 Browser session cleaned up")
 
 if __name__ == "__main__":
     main()
