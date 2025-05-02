@@ -1,11 +1,11 @@
 from config import *
 
-import time
-import random
 import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium_stealth import stealth
 from utils.helpers import parse_response
 
@@ -50,12 +50,12 @@ class ShoppingBot:
         # Turn on --headless if you wanna run it in the background
         # options.add_argument("--headless")
 
-        driver = webdriver.Firefox(options=options)
+        driver = webdriver.Chrome(options=options)
 
         stealth(driver,
             languages=["en-US", "en"],
             vendor="Google Inc.",
-            platform="Win32",
+            platform="Linux",
             webgl_vendor="Intel Inc.",
             renderer="Intel Iris OpenGL Engine",
             fix_hairline=True,
@@ -64,21 +64,30 @@ class ShoppingBot:
         try:
             print("🛒 Open product page")
             driver.get(PRODUCT_URL)
-            time.sleep(random.uniform(2, 5))  # Wait like a real user
+            
+            # Wait for page to load instead of fixed time delay
+            wait = WebDriverWait(driver, 10)
 
             print("🔎 Finding purchase button.")
-            buy_button = driver.find_element(By.CSS_SELECTOR, BUY_BUTTON_SELECTOR)
-            if not buy_button.is_displayed():
-                print("❌ Buy button not found.")
-                return False
+            buy_button = wait.until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, BUY_BUTTON_SELECTOR))
+            )
             
             buy_button.click()
             print("✅ Clicked buy.")
 
-            time.sleep(random.uniform(2, 4))
+            # Wait for cart update
+            wait.until(
+                EC.url_contains("shoppingCart")
+            )
 
             # Go to checkout
             driver.get(CHECKOUT_URL)
+
+            # Wait for checkout page to load
+            wait.until(
+                EC.url_contains("checkout")
+            )
 
             # Select delivery options etc
             

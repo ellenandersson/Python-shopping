@@ -1,6 +1,9 @@
 import os
 from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+
 BASE_URL = "https://www.popmart.com/se"
 LOGIN_URL = f"{BASE_URL}/user/login"
 CART_URL = f"{BASE_URL}/largeShoppingCart"
