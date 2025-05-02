@@ -75,8 +75,11 @@ class ShoppingBot:
 
             print("🔎 Finding purchase button.")
             buy_button = driver.find_element(By.CSS_SELECTOR, buy_button)
+            if not buy_button.is_displayed():
+                print("❌ Buy button not found.")
+                return False
+            
             buy_button.click()
-
             print("✅ Clicked buy.")
 
             time.sleep(random.uniform(2, 4))
@@ -87,9 +90,11 @@ class ShoppingBot:
             # Select delivery options etc
             
             print("🛒 At checkout.")
+            return True
 
         except Exception as e:
             print(f"🚨 Something went wrong: {e}")
+            return False
 
         finally:
             driver.quit()

@@ -1,9 +1,8 @@
-BASE_URL = "https://example.com"
-LOGIN_URL = f"{BASE_URL}/login"
-SEARCH_URL = f"{BASE_URL}/search"
-CART_URL = f"{BASE_URL}/cart"
+BASE_URL = "https://www.popmart.com/se"
+LOGIN_URL = f"{BASE_URL}/user/login"
+CART_URL = f"{BASE_URL}/largeShoppingCart"
 CHECKOUT_URL = f"{BASE_URL}/checkout"
-PRODUCT_URL = f"{BASE_URL}/product"
+PRODUCT_URL = f"{BASE_URL}/products/1443/BAZBON-Label-Plan-Series-1%2F8-Action-Figure"
 
 USERNAME = "your_username"
 PASSWORD = "your_password"
