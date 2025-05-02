@@ -15,5 +15,11 @@ def send_request(url, method='GET', data=None, headers=None):
 def parse_response(response):
     from bs4 import BeautifulSoup
 
-    soup = BeautifulSoup(response.text, 'html.parser')
+    # Check if response is already a string or a response object
+    if hasattr(response, 'text'):
+        html_content = response.text
+    else:
+        html_content = response  # Assume it's already a string
+
+    soup = BeautifulSoup(html_content, 'html.parser')
     return soup
