@@ -68,6 +68,7 @@ class ShoppingBot:
             product_page = self.config['PRODUCT_URL']
             checkout_page = self.config['CHECKOUT_URL']
             buy_button = self.config['BUY_BUTTON_SELECTOR']
+            
             print("🛒 Open product page")
             driver.get(product_page)
             time.sleep(random.uniform(2, 5))  # Wait like a real user

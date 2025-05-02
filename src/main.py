@@ -17,6 +17,7 @@ def main(self):
         sleep_time = random.randint(interval_min, interval_max)
         print(f"⏳ Wait {sleep_time} seconds until next check.")
         time.sleep(sleep_time)
+        #  TODO: Something to break the loop
 
 if __name__ == "__main__":
     main()
