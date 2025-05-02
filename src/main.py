@@ -1,18 +1,22 @@
-import time
 from bot import ShoppingBot
 
-def main():
+import time
+import random
+
+def main(self):
+    interval_min = self.config['CHECK_INTERVAL_MIN']
+    interval_max = self.config['CHECK_INTERVAL_MAX']
+
     bot = ShoppingBot()
     bot.login()
-    
-    item_to_search = "example item"
-    bot.search_item(item_to_search)
-    
-    time.sleep(2)  # Wait for search results to load
-    bot.add_to_cart(item_to_search)
-    
-    time.sleep(1)  # Wait for item to be added to cart
-    bot.checkout()
+
+    while True:
+        if bot.check_product():
+            bot.buy_product()
+            break
+        sleep_time = random.randint(interval_min, interval_max)
+        print(f"⏳ Wait {sleep_time} seconds until next check.")
+        time.sleep(sleep_time)
 
 if __name__ == "__main__":
     main()
