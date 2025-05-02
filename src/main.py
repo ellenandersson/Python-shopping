@@ -9,16 +9,18 @@ def main():
     bot = ShoppingBot()
     
     # Login with credentials from config
-    bot.login()
-
-    while True:
-        if bot.check_product():
-            if bot.buy_product():
-                print("✅ Product purchased successfully!")
-                break
-        sleep_time = random.randint(CHECK_INTERVAL_MIN, CHECK_INTERVAL_MAX)
-        print(f"⏳ Wait {sleep_time} seconds until next check.")
-        time.sleep(sleep_time)
+    if bot.login():
+        while True:
+            if bot.check_product():
+                if bot.buy_product():
+                    print("✅ Product purchased successfully!")
+                    break
+            sleep_time = random.randint(CHECK_INTERVAL_MIN, CHECK_INTERVAL_MAX)
+            print(f"⏳ Wait {sleep_time} seconds until next check.")
+            time.sleep(sleep_time)
+    else:
+        print("❌ Login failed. Please check your credentials.")
+        return
 
 if __name__ == "__main__":
     main()
