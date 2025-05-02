@@ -9,7 +9,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 from selenium_stealth import stealth
-from utils.helpers import parse_response
 
 class PopMartBot:
     def __init__(self):
@@ -200,35 +199,27 @@ class PopMartBot:
             return False
 
     def check_product(self):
-        """Check if the product is available using both the driver and requests"""
+        """Check if the product is available using Selenium to process JavaScript-rendered content"""
         try:
-            # First try with requests for speed
-            response = requests.get(PRODUCT_URL, headers=HEADERS, timeout=10)
-            if response.status_code != 200:
-                print(f"Error when fetching product: {response.status_code}")
-                return False
+            if not self.driver:
+                self._initialize_driver()
 
-            soup = parse_response(response.text)
+            print("🔍 Checking product availability using Selenium...")
+            self.driver.get(PRODUCT_URL)
             
-            # Look for any enabled buttons - more generic approach
-            buttons = soup.select(BUY_BUTTON_SELECTOR)
-            buy_buttons = [b for b in buttons if BUY_NOW in b.text.lower() or ADD_TO_CART in b.text.lower()]
-            
-            if buy_buttons:
-                print("✅ Product in stock (buy button found).")
-                
-                # If we found it with requests, navigate there with the driver to prepare for purchase
-                if self.driver:
-                    print("🔄 Navigating to product page to prepare for purchase...")
-                    self.driver.get(PRODUCT_URL)
-                    
+            # Wait for the page to load completely
+            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+            buy_button = self._find_buy_button()
+
+            if buy_button:
                 return True
             else:
-                print("❌ Still not in stock (no buy button).")
                 return False
 
-        except requests.RequestException as e:
-            print(f"Network error: {e}")
+
+        except Exception as e:
+            print(f"🚨 Error checking product availability: {e}")
             return False
         
         
@@ -254,22 +245,12 @@ class PopMartBot:
             # Handle quantity adjustment dynamically
             self._adjust_quantity(self.driver, self.wait)
             
-            # Find and click buy button - using text content for more reliability
-            print("🔎 Finding purchase button.")
-            buy_buttons = self.wait.until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, BUY_BUTTON_SELECTOR))
-            )
+            buy_button = self._find_buy_button()
+            if not buy_button:
+                print("❌ Buy button not found. Product may not be available.")
+                return False
             
-            # Filter for buttons with text containing "köp" or "buy"
-            for button in buy_buttons:
-                if BUY_NOW in button.text.lower() or ADD_TO_CART in button.text.lower():
-                    button.click()
-                    print("✅ Clicked buy.")
-                    break
-            else:
-                # If no buy button was found and clicked
-                print("❌ No buy button found.")
-                raise Exception("Buy button not found")
+            buy_button.click()
 
             # Wait for cart update
             self.wait.until(
@@ -472,3 +453,50 @@ class PopMartBot:
                     continue
         except Exception as e:
             print(f"⚠️ Error handling cookie banners: {e}")
+        
+    def _find_buy_button(self):
+        # Look for buy buttons - try multiple selectors for better reliability
+        buy_button_selectors = [
+            # Original selector
+            BUY_BUTTON_SELECTOR,
+            # Additional common selectors for buy buttons
+            "button.buy, button.add-to-cart, button.buy-now, button.add",
+            "button:contains('Buy'), button:contains('Add')",
+            "div[role='button'][class*='buy'], div[role='button'][class*='cart']",
+            "button[type='button']:not([disabled])"
+        ]
+        
+        found_buy_button = None
+        for selector in buy_button_selectors:
+            try:
+                # Use a short timeout to avoid long waits for non-existent elements
+                buttons = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector))
+                )
+                
+                # Check if any of the buttons have buy-related text
+                for button in buttons:
+                    button_text = button.text.lower()
+                    if BUY_NOW.lower() in button_text or ADD_TO_CART.lower() in button_text or 'buy' in button_text or 'add to cart' in button_text:
+                        print(f"✅ Product in stock! Found buy button with text: '{button.text}'")
+                        found_buy_button = button
+                        break
+            except Exception:
+                # Continue trying other selectors
+                continue
+            
+            if found_buy_button:
+                break
+        
+        # Try an alternative approach if no buttons found - look by XPath for text
+        if not found_buy_button:
+            try:
+                buy_xpath = "//button[contains(translate(text(), 'BUYNOWADD', 'buynowadd'), 'buy') or contains(translate(text(), 'BUYNOWADD', 'buynowadd'), 'add to cart')]"
+                buy_buttons = self.driver.find_elements(By.XPATH, buy_xpath)
+                if buy_buttons:
+                    print(f"✅ Product in stock! Found buy button with XPath with text: '{buy_buttons[0].text}'")
+                    found_buy_button = buy_buttons[0]
+            except Exception as e:
+                print(f"⚠️ XPath button search error: {e}")
+                
+        return found_buy_button

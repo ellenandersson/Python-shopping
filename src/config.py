@@ -11,7 +11,7 @@ LOGIN_URL = f"{BASE_URL}/user/login"
 CART_URL = f"{BASE_URL}/largeShoppingCart"
 CHECKOUT_URL = f"{BASE_URL}/checkout"
 # Allow for product URL to be changed without modifying code
-PRODUCT_URL = os.getenv("PRODUCT_URL", f"{BASE_URL}/products/1443/BAZBON-Label-Plan-Series-1%2F8-Action-Figure")
+PRODUCT_URL = os.getenv("PRODUCT_URL", f"{BASE_URL}/products/169/Modoli-Mood-%26-Weather-Series")
 
 POPMART_USERNAME = os.getenv("POPMART_USERNAME", "fake")
 POPMART_PASSWORD = os.getenv("POPMART_PASSWORD", "fake")
