@@ -1,3 +1,5 @@
+from config import *
+
 import time
 import random
 import requests
@@ -8,32 +10,27 @@ from selenium_stealth import stealth
 from utils.helpers import parse_response
 
 class ShoppingBot:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self):
         self.session = requests.Session()
 
-    def login(self, username, password):
-        login_url = self.config['LOGIN_URL']
+    def login(self):
         payload = {
-            'username': username,
-            'password': password
+            'username': USERNAME,
+            'password': PASSWORD
         }
-        response = self.session.post(login_url, data=payload)
+        response = self.session.post(LOGIN_URL, data=payload)
         return response.ok
 
     def check_product(self):
-        headers = self.config['HEADERS']
-        product_url = self.config['CHECKOUT_URL']
-        in_stock_text = self.config['IN_STOCK_TEXT']
         try:
-            response = requests.get(product_url, headers=headers, timeout=10)
+            response = requests.get(PRODUCT_URL, headers=HEADERS, timeout=10)
             if response.status_code != 200:
                 print(f"Error when fetching product: {response.status_code}")
                 return False
 
             soup = parse_response(response.text)
 
-            if in_stock_text.lower() in soup.text.lower():
+            if IN_STOCK_TEXT.lower() in soup.text.lower():
                 print("✅ Product in stock.")
                 return True
             else:
@@ -65,16 +62,12 @@ class ShoppingBot:
         )
 
         try:
-            product_page = self.config['PRODUCT_URL']
-            checkout_page = self.config['CHECKOUT_URL']
-            buy_button = self.config['BUY_BUTTON_SELECTOR']
-            
             print("🛒 Open product page")
-            driver.get(product_page)
+            driver.get(PRODUCT_URL)
             time.sleep(random.uniform(2, 5))  # Wait like a real user
 
             print("🔎 Finding purchase button.")
-            buy_button = driver.find_element(By.CSS_SELECTOR, buy_button)
+            buy_button = driver.find_element(By.CSS_SELECTOR, BUY_BUTTON_SELECTOR)
             if not buy_button.is_displayed():
                 print("❌ Buy button not found.")
                 return False
@@ -85,7 +78,7 @@ class ShoppingBot:
             time.sleep(random.uniform(2, 4))
 
             # Go to checkout
-            driver.get(checkout_page)
+            driver.get(CHECKOUT_URL)
 
             # Select delivery options etc
             
