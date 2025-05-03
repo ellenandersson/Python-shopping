@@ -246,12 +246,12 @@ class PopMartBot:
                 
             # Wait for page to fully load
             time.sleep(1)
-            
+
             # Handle variant selection dynamically
-            self._select_variant(self.driver)
+            self._select_variant()
             
             # Handle quantity adjustment dynamically
-            self._adjust_quantity(self.driver)
+            self._adjust_quantity()
             
             buy_button = self._find_buy_button()
             if not buy_button:
@@ -285,25 +285,42 @@ class PopMartBot:
             # Don't clean up on purchase failure - might be temporary
             return False
 
-    def _adjust_quantity_with_buttons(self, driver):
+    def _adjust_quantity_with_buttons(self):
         """Adjust quantity using + and - buttons when direct input is not possible"""
         try:
             print("🔢 Looking for quantity +/- buttons...")
-            
-            # Find the plus button - using partial class name
-            plus_button = driver.find_element(By.CSS_SELECTOR, "div[class*='countButton']")
-            
-            if not plus_button:
-                print("⚠️ Could not find plus button")
-                return
                 
             # Find the quantity display/input field
-            quantity_input = driver.find_element(By.CSS_SELECTOR, "input[class*='countInput']")
+            quantity_input = self.driver.find_element(By.CSS_SELECTOR, "input[class*='countInput']")
             
             if not quantity_input:
                 print("⚠️ Could not find quantity display")
                 return
+            
+            # Find the plus button - looking for the one with a plus sign
+            quantity_buttons = self.driver.find_elements(By.CSS_SELECTOR, "div[class*='countButton']")
+            
+            if not quantity_buttons:
+                print("⚠️ Could not find plus buttons")
+                return
                 
+            plus_button = None
+            for button in quantity_buttons:
+                button_text = button.text.strip()
+                if button_text == "+" or "add" in button_text.lower() or "plus" in button_text.lower():
+                    plus_button = button
+                    print(f"✅ Found plus button with text: '{button_text}'")
+                    break
+                    
+            # If text-based approach fails, try the second button (assuming first is minus, second is plus)
+            if not plus_button and len(quantity_buttons) >= 2:
+                plus_button = quantity_buttons[1]  # Usually the second button is plus
+                print("✅ Using second count button as plus button")
+            
+            if not plus_button:
+                print("⚠️ Could not find a button that looks like plus, will buy one")
+                return
+            
             # Get current quantity
             current_quantity = int(quantity_input.get_attribute("value") or "1")
             print(f"📊 Current quantity: {current_quantity}")
@@ -320,7 +337,7 @@ class PopMartBot:
                         break
 
                     previous_quantity = current_quantity
-                    time.sleep(0.3)  # Small wait between clicks
+                    time.sleep(0.3)
                 
                 print(f"➕ Set quantity to {current_quantity}")
 
@@ -330,60 +347,91 @@ class PopMartBot:
             print("⚠️ Continuing with default quantity")
             
     # Try our specialized method first, fall back to the general one if it fails
-    def _adjust_quantity(self, driver):
+    def _adjust_quantity(self):
         try:
-            self._adjust_quantity_with_buttons(driver)
+            self._adjust_quantity_with_buttons()
         except Exception as e:
             print(f"⚠️ Specialized quantity adjustment failed: {e}")
     
-    def _select_variant(self, driver):
-        """Dynamically detect and select product variants (size, color, etc.)"""
-        try:
-            print("🧩 Looking for product variants...")
-            
-            whole_set_option = None
-            single_box_option = None
-            
-            try:
-                # Find elements containing the text "whole set" (case insensitive)
-                whole_set_option = driver.find_element(By.XPATH, 
-                    "//*[contains(translate(text(), 'WHOLESET', 'wholeset'), 'whole set')]")
-                class_name = whole_set_option.get_attribute("class")
-                print("Found 'whole set' option")
-                if "disabled" in class_name:
-                    whole_set_option = None
-                    print("Whole set option is out of stock")
-            except NoSuchElementException:
-                print("No 'whole set' option found")
+    def _select_variant(self):
+        if SPECIAL_TYPES:
+            print("🧩 Looking for special type variants")
+            variants = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'index_sizeInfoItem')]")
+            if variants:
+                print(f"📏 Found {len(variants)} size options")
                 
+                # First, collect all available (non-disabled) variants
+                available_variants = []
+                for idx, variant in enumerate(variants):
+                    variant_class = variant.get_attribute("class")
+                    if "disabled" not in variant_class:
+                        available_variants.append((idx, variant))
+                
+                if not available_variants:
+                    print("❌ No available variants found.")
+                    return
+                
+                # Now check if our preferred item exists
+                if available_variants and len(variants) >= SPECIAL_TYPE_PREFERENCE:
+                    preferred_variant = variants[SPECIAL_TYPE_PREFERENCE - 1]  # Convert to 0-based index
+                    preferred_class = preferred_variant.get_attribute("class")
+                    
+                    if "disabled" not in preferred_class:
+                        print(f"✅ Found preferred variant (#{SPECIAL_TYPE_PREFERENCE})")
+                        preferred_variant.click()
+                        print(f"Selected preferred variant: {preferred_variant.text}")
+                        return
+                
+                else:
+                    print(f"❌ Preferred variant #{SPECIAL_TYPE_PREFERENCE} not available")
+                    print("✅ Selecting first available variant instead: {available_variants[0][1].text}")
+                    available_variants[0][1].click()
+        else:
             try:
-                # Find elements containing the text "single box" (case insensitive)
-                single_box_option = driver.find_element(By.XPATH, 
-                    "//*[contains(translate(text(), 'SINGLEBOX', 'singlebox'), 'single box')]")
-                class_name = single_box_option.get_attribute("class")
-                print("Found 'single box set' option")
-                if "disabled" in class_name:
-                    single_box_option = None
-                    print("Single set option is out of stock")
-            except NoSuchElementException:
-                print("No 'single box' option found")
+                print("🧩 Looking for product with whole set and single box, or singular")
+                
+                whole_set_option = None
+                single_box_option = None
+                
+                try:
+                    # Find elements containing the text "whole set" (case insensitive)
+                    whole_set_option = self.driver.find_element(By.XPATH, 
+                        "//*[contains(translate(text(), 'WHOLESET', 'wholeset'), 'whole set')]")
+                    class_name = whole_set_option.get_attribute("class")
+                    print("Found 'whole set' option")
+                    if "disabled" in class_name:
+                        whole_set_option = None
+                        print("Whole set option is out of stock")
+                except NoSuchElementException:
+                    print("No 'whole set' option found")
+                    
+                try:
+                    # Find elements containing the text "single box" (case insensitive)
+                    single_box_option = self.driver.find_element(By.XPATH, 
+                        "//*[contains(translate(text(), 'SINGLEBOX', 'singlebox'), 'single box')]")
+                    class_name = single_box_option.get_attribute("class")
+                    print("Found 'single box set' option")
+                    if "disabled" in class_name:
+                        single_box_option = None
+                        print("Single set option is out of stock")
+                except NoSuchElementException:
+                    print("No 'single box' option found")
 
-            if not whole_set_option and not single_box_option:
-                print("❌ No available variant options found.")
-                return
-            
-            # Select based on preference
-            if PREFER_WHOLE_SET and whole_set_option:
-                whole_set_option.click()
-                print("✅ Selected: Whole set")
-            elif not PREFER_WHOLE_SET and single_box_option:
-                single_box_option.click()
-                print("✅ Selected: Single box")
+                if not whole_set_option and not single_box_option:
+                    print("❌ No available variant options found.")
+                    return
+                
+                # Select based on preference
+                if PREFER_WHOLE_SET and whole_set_option:
+                    whole_set_option.click()
+                    print("✅ Selected: Whole set")
+                elif not PREFER_WHOLE_SET and single_box_option:
+                    single_box_option.click()
+                    print("✅ Selected: Single box")
 
-        except Exception as e:
-            print(f"⚠️ Could not select variant: {e}")
-            print("⚠️ Continuing with default variant")
-
+            except Exception as e:
+                print(f"⚠️ Could not select variant: {e}")
+                print("⚠️ Continuing with default variant")
 
         
     def _find_buy_button(self):

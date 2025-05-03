@@ -26,8 +26,11 @@ ADD_TO_CART = 'ADD TO CART'
 BUY_BUTTON_SELECTOR = "div[class*='red'][class*='btn'], div[class*='red'][class*='Btn']"
 
 # Purchase preferences
-PREFERRED_QUANTITY = 1 # Can be env vars
+PREFERRED_QUANTITY = 3 # Can be env vars
 PREFER_WHOLE_SET = True # Can be env vars
 
 CHECK_INTERVAL_MIN = 30
 CHECK_INTERVAL_MAX = 60
+
+SPECIAL_TYPES = False
+SPECIAL_TYPE_PREFERENCE = 1
