@@ -49,142 +49,13 @@ class PopMartBot:
             finally:
                 self.driver = None
                 self.wait = None
-
-    def login(self):
-        """Log in to the website using the shared WebDriver instance"""
+    
+    def start(self):
         if not self.driver:
             self._initialize_driver()
-            
-        try:
-            print("🔐 Navigating to login page.")
-            self.driver.get(LOGIN_URL)
-            
-            accept_cookies(self.driver)
-            
-            # Look for common email field patterns
-            print("🔍 Finding email field.")
-            username_field = self.wait.until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 
-                    "input[type='email'], input[name='email'], input[id*='email'], input[name='username'], input[id*='username']"))
-            )
-
-            if not username_field:
-                print("❌ Email field not found.")
-                return False
-            
-            # Fill in email
-            print("✏️ Entering email")
-            username_field.clear()
-            username_field.send_keys(POPMART_USERNAME)
-            
-            # Find continue button
-            print("🔍 Finding continue button...")
-            continue_button_xpath_patterns = [
-                "//button[contains(translate(text(), 'CONTINUECONTINU', 'continuecontinu'), 'continue')]"
-            ]
-            
-            continue_button = None
-            for xpath in continue_button_xpath_patterns:
-                try:
-                    buttons = WebDriverWait(self.driver, 2).until(
-                        EC.presence_of_all_elements_located((By.XPATH, xpath))
-                    )
-                    if buttons:
-                        continue_button = buttons[0]
-                        break
-                except Exception:
-                    print(f"❌ Continue button not found with XPath: {xpath}")
-                    return False
-            
-            # If we found the continue button, click it
-            continue_button.click()
-            time.sleep(0.5)
-            
-            # Look for password field
-            print("🔍 Finding password field...")
-            password_field = self.wait.until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='password']"))
-            )
-
-            if not password_field:
-                print("❌ password field not found.")
-                return False
-            
-            password_field.clear()
-            password_field.send_keys(POPMART_PASSWORD)
-            
-            # Find submit button
-            print("🔍 Finding login button...")
-            submit_button_xpath_patterns = [
-                "//button[contains(@class, 'loginButton')]", 
-                "//button[contains(@class, 'index_loginButton')]"
-            ]
-            
-            submit_button = None
-            for xpath in submit_button_xpath_patterns:
-                try:
-                    buttons = WebDriverWait(self.driver, 2).until(
-                        EC.presence_of_all_elements_located((By.XPATH, xpath))
-                    )
-                    if buttons:
-                        submit_button = buttons[0]
-                        break
-                except Exception:
-                    continue
-            
-            if submit_button:
-                print("🖱️ Clicking submit button")
-                # Scroll to the button first
-                self.driver.execute_script("arguments[0].scrollIntoView(true);", submit_button)
-                time.sleep(0.5)  # Small wait after scrolling
-                
-                try:
-                    # Try clicking with ActionChains
-                    from selenium.webdriver.common.action_chains import ActionChains
-                    ActionChains(self.driver).move_to_element(submit_button).click().perform()
-                    print("✅ Clicked login button using ActionChains")
-                except Exception as e:
-                    print(f"⚠️ ActionChains click failed: {e}")
-                    try:
-                        # Try regular click
-                        submit_button.click()
-                        print("✅ Clicked login button with regular click")
-                    except Exception as e:
-                        print(f"⚠️ Regular click failed: {e}")
-                        # Try JavaScript click as last resort
-                        self.driver.execute_script("arguments[0].click();", submit_button)
-                        print("✅ Clicked login button with JavaScript")
-                
-                # Wait for redirect after login (either to homepage or dashboard)
-                try:
-                    self.wait.until(EC.url_changes(LOGIN_URL))
-                    if self.driver.current_url == LOGIN_URL:
-                        print("❌ Still on login page after clicking submit.")
-                        return False
-                    print("✅ Login successful! Redirected from login page.")
-                except Exception:
-                    # Sometimes the URL might not change on successful login
-                    # Check for elements that would appear after successful login
-                    try:
-                        self.wait.until(EC.presence_of_element_located((
-                            By.CSS_SELECTOR, ".user-account, .account, .profile, .my-account, .logout"
-                        )))
-                        print("✅ Login successful! Found account-related elements.")
-                    except Exception as e:
-                        print(f"⚠️ Could not confirm successful login: {e}")
-                
-                selenium_cookies = self.driver.get_cookies()
-                for cookie in selenium_cookies:
-                    self.session.cookies.set(cookie['name'], cookie['value'])
-                
-                return True
-            else:
-                print("❌ Login button not found.")
-                return False
-                
-        except Exception as e:
-            print(f"🚨 Login failed: {e}")
-            return False
+        print("🚀 Starting PopMart bot...")
+        self.driver.get(BASE_URL)
+        accept_cookies(self.driver)
 
     def check_product(self):
         """Check if the product is available using Selenium to process JavaScript-rendered content"""
@@ -233,10 +104,6 @@ class PopMartBot:
         
     def buy_product(self):
         """Buy the product using the shared WebDriver instance"""
-        if not self.driver:
-            print("❌ No active browser session. Please login first.")
-            return False
-
         try:
             # Assume we're already on the product page from check_product
             # If not, navigate there
@@ -260,22 +127,42 @@ class PopMartBot:
             
             buy_button.click()
 
-            ## TODO fix here
+            # Wait for the guest checkout popup to appear
+            print("⏳ Waiting for guest checkout popup...")
+            try:
+                # Try multiple XPath approaches to find the guest checkout button
+                xpaths = [
+                    "//button[contains(., 'GUEST') or contains(., 'Guest')]"
+                ]
+                
+                guest_checkout_button = None
+                for xpath in xpaths:
+                    try:
+                        guest_checkout_button = WebDriverWait(self.driver, 2).until(
+                            EC.element_to_be_clickable((By.XPATH, xpath))
+                        )
+                        print(f"✅ Found guest checkout button with xpath: {xpath}")
+                        break
+                    except:
+                        continue
+                        
+                if guest_checkout_button:
+                    guest_checkout_button.click()
+                    print("✅ Clicked guest checkout button")
+                else:
+                    print("❌ Could not find guest checkout button with any of the attempted selectors")
+                    return False
+            except Exception as e:
+                print(f"⚠️ Guest checkout button not found: {e}")
+                return False
 
             # Wait for cart update
             self.wait.until(
-                EC.url_contains("shoppingCart")
-            )
-
-            # Go to checkout
-            self.driver.get(CHECKOUT_URL)
-
-            # Wait for checkout page to load
-            self.wait.until(
-                EC.url_contains("checkout")
+                EC.url_contains("order-confirmation")
             )
             
             print("🛒 At checkout.")
+            self._fill_email()
             
             # Don't quit the driver here - let main program decide when to quit
             return True
@@ -480,3 +367,78 @@ class PopMartBot:
                 print(f"⚠️ XPath button search error: {e}")
                 
         return found_buy_button
+
+    def _fill_email(self):
+        """Fill in email information"""
+
+        try:
+            print("🔍 Looking for email field...")
+            email_selectors = [
+                "//input[contains(@class, 'emailInput')]"
+            ]
+            
+            email_field = None
+            for selector in email_selectors:
+                try:
+                    email_field = WebDriverWait(self.driver, 2).until(
+                        EC.presence_of_element_located((By.XPATH, selector))
+                    )
+                    print(f"✅ Found email field with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not email_field:
+                raise Exception("Email field not found with any of the attempted selectors")
+            
+            apply_selectors = [
+                "//span[contains(@class, 'applyBtn')]"
+            ]
+
+            # wait for overlay to click confirm
+            WebDriverWait(self.driver, 10).until(
+                EC.invisibility_of_element_located((By.CSS_SELECTOR, "div[class*='loadingWrapFull']"))
+            )
+            
+            email_field_apply = None
+            for selector in apply_selectors:
+                try:
+                    email_field_apply = WebDriverWait(self.driver, 2).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    print(f"✅ Found confirm button with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not email_field_apply:
+                raise Exception("Confirm button not found with any of the attempted selectors")
+            
+            email_field.send_keys(POPMART_USERNAME)
+            # Click first apply button
+            email_field_apply.click()
+
+            print("✅ Email field filled and applied")
+
+            confirm_selectors = [
+                "//button[contains(@class, 'confirmBtn')]"
+            ]
+            email_field_confirm = None
+            for selector in confirm_selectors:
+                try:
+                    email_field_confirm = WebDriverWait(self.driver, 2).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    print(f"✅ Found confirm button with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not email_field_confirm:
+                raise Exception("Confirm button not found with any of the attempted selectors")
+            
+            email_field_confirm.click()
+            print("✅ Email field filled and double confirmed")
+            
+        except Exception as e:
+            print(f"⚠️ Error filling email: {e}")

@@ -14,10 +14,10 @@ class ShoppingBot:
             return PopMartBot()
         else:
             raise ValueError(f"Unsupported store: {self.store}")
-
-    def login(self):
+    
+    def start(self):
         if self.bot:
-            return self.bot.login()
+            self.bot.start()
         else:
             raise ValueError("No bot instance available. Please check the store name.")
     

@@ -6,7 +6,7 @@ import random
 
 def main():
     shoppingBot = ShoppingBot(STORE)
-    
+    shoppingBot.start()
     try:
         if ON_RELEASE:
             print(f"🕒 Waiting for release at {RELEASE_DATE} {RELEASE_HOUR}:{RELEASE_MINUTE}")
@@ -22,7 +22,7 @@ def main():
                     current_datetime = time.time()
                     # Start bot if within 5 minutes of release time
                     time_until_release = release_datetime - current_datetime
-                    if time_until_release <= 300:  # 5 minutes in seconds
+                    if time_until_release <= PREEMPTIVE_START_TIME:  
                         print(f"🚀 Starting bot (within 5 minutes of release time)")
                         break
                     
@@ -31,18 +31,15 @@ def main():
                     print(f"🕒 Waiting {sleep_seconds} seconds until the next minute... ({int(time_until_release/60)} minutes until release)")
                     time.sleep(sleep_seconds)
 
-        if shoppingBot.login():
-            while True:
-                if shoppingBot.check_product():
-                    if shoppingBot.buy_product():
-                        print("✅ Product purchased successfully!")
-                        break
-                sleep_time = random.randint(CHECK_INTERVAL_MIN, CHECK_INTERVAL_MAX)
-                print(f"⏳ Wait {sleep_time} seconds until next check.")
-                time.sleep(sleep_time)
-        else:
-            print("❌ Login failed. Please check your credentials.")
-            return
+        while True:
+            if shoppingBot.check_product():
+                if shoppingBot.buy_product():
+                    print("✅ Product purchased successfully!")
+                    break
+            sleep_time = random.randint(CHECK_INTERVAL_MIN, CHECK_INTERVAL_MAX)
+            print(f"⏳ Wait {sleep_time} seconds until next check.")
+            time.sleep(sleep_time)
+                
     finally:
         # Make sure to clean up browser resources even if we exit with an error
         if shoppingBot and shoppingBot.bot:

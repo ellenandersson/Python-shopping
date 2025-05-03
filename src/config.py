@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ON_RELEASE = True
+PREEMPTIVE_START_TIME = 5 * 60  # 5 minutes in seconds
 # Convert string date to datetime object
 RELEASE_DATE_STR = "2025-05-03"
 # Parse the date string into a datetime object
@@ -16,7 +17,6 @@ RELEASE_MINUTE = "03"
 STORE = "popmart"
 
 BASE_URL = "https://www.popmart.com/se"
-LOGIN_URL = f"{BASE_URL}/user/login"
 CART_URL = f"{BASE_URL}/largeShoppingCart"
 CHECKOUT_URL = f"{BASE_URL}/checkout"
 # Allow for product URL to be changed without modifying code
