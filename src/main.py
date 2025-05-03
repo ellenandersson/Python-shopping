@@ -9,7 +9,6 @@ def main():
     
     try:
         if shoppingBot.login():
-            print("✅ Login successful")
             while True:
                 if shoppingBot.check_product():
                     if shoppingBot.buy_product():

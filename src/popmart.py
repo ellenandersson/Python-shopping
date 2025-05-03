@@ -79,12 +79,7 @@ class PopMartBot:
             # Find continue button
             print("🔍 Finding continue button...")
             continue_button_xpath_patterns = [
-                "//button[contains(translate(text(), 'CONTINUECONTINU', 'continuecontinu'), 'continue')]",
-                "//a[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'login')]",
-                "//a[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'sign in')]",
-                "//button[contains(@class, 'loginButton')]",
-                "//button[contains(@class, 'index_loginButton')]",
-                "//button[contains(@class, 'ant-btn-primary')]"
+                "//button[contains(translate(text(), 'CONTINUECONTINU', 'continuecontinu'), 'continue')]"
             ]
             
             continue_button = None
@@ -119,17 +114,9 @@ class PopMartBot:
             
             # Find submit button
             print("🔍 Finding login button...")
-            # Try multiple XPath patterns for login buttons
             submit_button_xpath_patterns = [
-                "//button[@type='submit']",
-                "//input[@type='submit']",
-                "//button[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'login')]",
-                "//button[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'sign in')]",
-                "//button[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'log in')]",
-                "//a[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'login')]",
-                "//a[contains(translate(text(), 'LOGINSGN', 'loginsgn'), 'sign in')]",
-                "//button[contains(@class, 'loginButton')]",  # The specific class from your error
-                "//button[contains(@class, 'index_loginButton')]"  # Even more specific class
+                "//button[contains(@class, 'loginButton')]", 
+                "//button[contains(@class, 'index_loginButton')]"
             ]
             
             submit_button = None
@@ -207,15 +194,31 @@ class PopMartBot:
             print("🔍 Checking product availability using Selenium...")
             self.driver.get(PRODUCT_URL)
             
-            # Wait for the page to load completely
-            self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            self.wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='index_price']"))
+            )
 
-            buy_button = self._find_buy_button()
+            available = False
 
-            if buy_button:
-                return True
+            size_items = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'index_sizeInfoItem')]")
+
+            if size_items:
+                print(f"📏 Found {len(size_items)} size options")
+                
+                # Check if all size items are disabled
+                for item in size_items:
+                    class_name = item.get_attribute("class")
+                    if "disabled" not in class_name:
+                        print("✅ Found available size option")
+                        available = True
+                        break
             else:
-                return False
+                if self._find_buy_button():
+                    available = True
+                else:
+                    available = False
+
+            return available
 
 
         except Exception as e:
@@ -240,10 +243,10 @@ class PopMartBot:
             time.sleep(1)
             
             # Handle variant selection dynamically
-            self._select_variant(self.driver, self.wait)
+            self._select_variant(self.driver)
             
             # Handle quantity adjustment dynamically
-            self._adjust_quantity(self.driver, self.wait)
+            self._adjust_quantity(self.driver)
             
             buy_button = self._find_buy_button()
             if not buy_button:
@@ -251,6 +254,8 @@ class PopMartBot:
                 return False
             
             buy_button.click()
+
+            ## TODO fix here
 
             # Wait for cart update
             self.wait.until(
@@ -275,7 +280,7 @@ class PopMartBot:
             # Don't clean up on purchase failure - might be temporary
             return False
 
-    def _adjust_quantity_with_buttons(self, driver, wait):
+    def _adjust_quantity_with_buttons(self, driver):
         """Adjust quantity using + and - buttons when direct input is not possible"""
         try:
             print("🔢 Looking for quantity +/- buttons...")
@@ -320,13 +325,13 @@ class PopMartBot:
             print("⚠️ Continuing with default quantity")
             
     # Try our specialized method first, fall back to the general one if it fails
-    def _adjust_quantity(self, driver, wait):
+    def _adjust_quantity(self, driver):
         try:
-            self._adjust_quantity_with_buttons(driver, wait)
+            self._adjust_quantity_with_buttons(driver)
         except Exception as e:
             print(f"⚠️ Specialized quantity adjustment failed: {e}")
     
-    def _select_variant(self, driver, wait):
+    def _select_variant(self, driver):
         """Dynamically detect and select product variants (size, color, etc.)"""
         try:
             print("🧩 Looking for product variants...")
@@ -368,15 +373,7 @@ class PopMartBot:
             print("🍪 Looking for cookie/policy consent banners...")
             # Common selectors for cookie/policy banners
             banner_selectors = [
-                ".policy_aboveFixedContainer__KfeZi",  # The specific class from your error
-                "div[class*='cookie']", 
-                "div[class*='consent']", 
-                "div[class*='policy']", 
-                "div[class*='gdpr']",
-                "div[id*='cookie']", 
-                "div[id*='consent']", 
-                "div[id*='policy']", 
-                "div[id*='gdpr']"
+                "//div[contains(@class, 'policy_aboveFixedContainer')]"
             ]
             
             # Common button texts for accept buttons
@@ -387,39 +384,33 @@ class PopMartBot:
                 try:
                     # Use explicit wait to find banners
                     banners = WebDriverWait(self.driver, 2).until(
-                        EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector))
+                        EC.presence_of_element_located((By.XPATH, selector))
                     )
                     
                     if banners:
                         print(f"Found potential banner with selector: {selector}")
                         
-                        # Try different approaches to find and click buttons
-                        # 1. Look specifically for the policy_acceptBtn class
                         try:
-                            accept_button = WebDriverWait(self.driver, 1).until(
-                                EC.presence_of_element_located((By.CSS_SELECTOR, ".policy_acceptBtn__7NU1, [class*='policy_acceptBtn']"))
-                            )
-                            self.driver.execute_script("arguments[0].click();", accept_button)
-                            print("✅ Clicked accept button with policy_acceptBtn class")
-                            time.sleep(1)
-                            return
+                            accept_button = self.driver.find_element(By.XPATH, "//div[contains(@class, 'policy_acceptBtn')]")
+                            if accept_button:
+                                self.driver.execute_script("arguments[0].click();", accept_button)
+                                print("✅ Clicked accept button with policy_acceptBtn class")
+                                return
+                            else:
+                                print("❌ Accept button not found with policy_acceptBtn class")
+                                Exception("Accept button not found")
                         except Exception:
-                            # 2. Try direct XPath with text for accept buttons 
                             for text in accept_texts:
                                 try:
-                                    # Make sure it can find buttons with text "ACCEPT" or "accept"
                                     xpath = f"//button[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{text}')]"
-                                    # Also look for div elements that might be acting as buttons
                                     xpath_div = f"//*[contains(@class, 'button') or contains(@class, 'btn')][contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{text}')]"
                                     
                                     buttons = WebDriverWait(self.driver, 1).until(
                                         EC.presence_of_all_elements_located((By.XPATH, f"{xpath} | {xpath_div}"))
                                     )
                                     if buttons:
-                                        # Use JavaScript click to avoid interception
                                         self.driver.execute_script("arguments[0].click();", buttons[0])
                                         print(f"✅ Clicked accept button with text: {text}")
-                                        time.sleep(1)  # Wait for banner to disappear
                                         break
                                 except Exception:
                                     continue
@@ -427,7 +418,6 @@ class PopMartBot:
                             # 3. If no text buttons worked, try any buttons within the banner
                             try:
                                 for banner in banners:
-                                    # Use JavaScript to find buttons inside the banner
                                     buttons = self.driver.execute_script(
                                         "return arguments[0].querySelectorAll('button, .button, [role=\"button\"], [class*=\"accept\"], [class*=\"btn\"]');", 
                                         banner
@@ -435,7 +425,6 @@ class PopMartBot:
                                     if buttons:
                                         self.driver.execute_script("arguments[0].click();", buttons[0])
                                         print("✅ Clicked first button in banner")
-                                        time.sleep(1)
                                         break
                             except Exception:
                                 pass
@@ -446,7 +435,6 @@ class PopMartBot:
                                 f"document.querySelectorAll('{selector}').forEach(el => el.style.display = 'none');"
                             )
                             print(f"✅ Tried to hide banner with selector: {selector}")
-                            time.sleep(0.5)
                         except Exception:
                             pass
                 except Exception:
@@ -457,9 +445,7 @@ class PopMartBot:
     def _find_buy_button(self):
         # Look for buy buttons - try multiple selectors for better reliability
         buy_button_selectors = [
-            # Original selector
             BUY_BUTTON_SELECTOR,
-            # Additional common selectors for buy buttons
             "button.buy, button.add-to-cart, button.buy-now, button.add",
             "button:contains('Buy'), button:contains('Add')",
             "div[role='button'][class*='buy'], div[role='button'][class*='cart']",
