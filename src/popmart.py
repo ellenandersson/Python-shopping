@@ -383,9 +383,14 @@ class PopMartBot:
                         return
                 
                 else:
-                    print(f"❌ Preferred variant #{SPECIAL_TYPE_PREFERENCE} not available")
-                    print("✅ Selecting first available variant instead: {available_variants[0][1].text}")
-                    available_variants[0][1].click()
+                    if SPECIAL_TYPE_ANY:
+                        print(f"❌ Preferred variant #{SPECIAL_TYPE_PREFERENCE} not available")
+                        print("✅ Selecting first available variant instead: {available_variants[0][1].text}")
+                        available_variants[0][1].click()
+                    else:
+                        print(f"❌ Preferred variant #{SPECIAL_TYPE_PREFERENCE} not available")
+                        print("❌ Do not want any other variants")
+                        return
         else:
             try:
                 print("🧩 Looking for product with whole set and single box, or singular")
