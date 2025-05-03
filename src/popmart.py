@@ -199,8 +199,9 @@ class PopMartBot:
                 EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='index_price']"))
             )
 
-            available = False
+            print("✅ Product page loaded successfully.")
 
+            available = False
             size_items = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'index_sizeInfoItem')]")
 
             if size_items:
@@ -214,9 +215,12 @@ class PopMartBot:
                         available = True
                         break
             else:
+                print("❌ No size options found. Checking buy button directly.")
                 if self._find_buy_button():
+                    print("✅ Found buy button. Product is available.")
                     available = True
                 else:
+                    print("❌ No buy button found. Product may not be available.")
                     available = False
 
             return available
@@ -386,17 +390,14 @@ class PopMartBot:
         # Look for buy buttons - try multiple selectors for better reliability
         buy_button_selectors = [
             BUY_BUTTON_SELECTOR,
-            "button.buy, button.add-to-cart, button.buy-now, button.add",
-            "button:contains('Buy'), button:contains('Add')",
-            "div[role='button'][class*='buy'], div[role='button'][class*='cart']",
-            "button[type='button']:not([disabled])"
+            "div[role='button'][class*='buy'], div[role='button'][class*='cart']"
         ]
         
         found_buy_button = None
         for selector in buy_button_selectors:
             try:
                 # Use a short timeout to avoid long waits for non-existent elements
-                buttons = WebDriverWait(self.driver, 10).until(
+                buttons = WebDriverWait(self.driver, 3).until(
                     EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector))
                 )
                 
