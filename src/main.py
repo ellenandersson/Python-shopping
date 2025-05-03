@@ -8,6 +8,29 @@ def main():
     shoppingBot = ShoppingBot(STORE)
     
     try:
+        if ON_RELEASE:
+            print(f"🕒 Waiting for release at {RELEASE_DATE} {RELEASE_HOUR}:{RELEASE_MINUTE}")
+            
+            release_datetime = time.mktime(time.strptime(f"{RELEASE_DATE.year}-{RELEASE_DATE.month}-{RELEASE_DATE.day} {RELEASE_HOUR}:{RELEASE_MINUTE}:00", "%Y-%m-%d %H:%M:%S"))
+            current_datetime = time.time()
+            
+            # If release time is in the past, start immediately
+            if current_datetime >= release_datetime:
+                print("🚀 Starting bot (release time has already passed)")
+            else:
+                while True:
+                    current_datetime = time.time()
+                    # Start bot if within 5 minutes of release time
+                    time_until_release = release_datetime - current_datetime
+                    if time_until_release <= 300:  # 5 minutes in seconds
+                        print(f"🚀 Starting bot (within 5 minutes of release time)")
+                        break
+                    
+                    current_second = time.localtime().tm_sec
+                    sleep_seconds = 60 - current_second
+                    print(f"🕒 Waiting {sleep_seconds} seconds until the next minute... ({int(time_until_release/60)} minutes until release)")
+                    time.sleep(sleep_seconds)
+
         if shoppingBot.login():
             while True:
                 if shoppingBot.check_product():

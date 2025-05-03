@@ -1,8 +1,17 @@
 import os
+import datetime
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+ON_RELEASE = True
+# Convert string date to datetime object
+RELEASE_DATE_STR = "2025-05-03"
+# Parse the date string into a datetime object
+RELEASE_DATE = datetime.datetime.strptime(RELEASE_DATE_STR, "%Y-%m-%d").date()
+RELEASE_HOUR = "12"
+RELEASE_MINUTE = "03"
 
 STORE = "popmart"
 
