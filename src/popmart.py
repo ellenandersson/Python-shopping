@@ -163,6 +163,7 @@ class PopMartBot:
             
             print("🛒 At checkout.")
             self._fill_email()
+            self._fill_address_book()
             
             # Don't quit the driver here - let main program decide when to quit
             return True
@@ -369,8 +370,6 @@ class PopMartBot:
         return found_buy_button
 
     def _fill_email(self):
-        """Fill in email information"""
-
         try:
             print("🔍 Looking for email field...")
             email_selectors = [
@@ -442,3 +441,127 @@ class PopMartBot:
             
         except Exception as e:
             print(f"⚠️ Error filling email: {e}")
+    
+    def _fill_address_book(self):
+        try:
+            print("🔍 Looking for address book...")
+            address_book_selectors = [
+                "//div[contains(@class, 'addAddressBtn')]"
+            ]
+            
+            address_book = None
+            for selector in address_book_selectors:
+                try:
+                    address_book = WebDriverWait(self.driver, 2).until(
+                        EC.presence_of_element_located((By.XPATH, selector))
+                    )
+                    print(f"✅ Found address book with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not address_book:
+                raise Exception("Address book not found with any of the attempted selectors")
+            
+            address_book.click()
+            print("✅ Address book opened")
+
+            # Wait for the address form modal to appear
+            form_modal_element = WebDriverWait(self.driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='modal-content']"))
+            )
+            print("✅ Address form modal loaded")
+            
+            manual_address_selectors_xpath = [
+                "//span[contains(@class, 'addOrUpdateAddress_text')]"
+            ]
+            enter_manually_btn = None
+            for selector in manual_address_selectors_xpath:
+                try:
+                    enter_manually_btn = WebDriverWait(self.driver, 2).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    print(f"✅ Found enter manually with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not enter_manually_btn:
+                raise Exception("Confirm button not found with any of the attempted selectors")
+
+
+            print("✅ Clicking enter manually button")
+            try:
+                # First try the normal click
+                enter_manually_btn.click()
+            except Exception as e:
+                print(f"⚠️ Normal click failed: {e}")
+                # Try using JavaScript to click the element
+                self.driver.execute_script("arguments[0].click();", enter_manually_btn)
+                print("✅ Clicked using JavaScript")
+
+            # Wait for the address form to load completely and specifically for the zipcode field
+            try:
+                print("⏳ Waiting for zipcode field to appear...")
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.ID, "postalCode"))
+                )
+                print("✅ Zipcode field appeared, form is ready to be filled")
+            except Exception as e:
+                print(f"⚠️ Timed out waiting for zipcode field: {e}")
+                try:
+                    WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.ID, "postalCode"))
+                    )
+                    print("✅ Found zipcode field second time")
+                except Exception as e:
+                    print(f"⚠️ Could not find zipcode field: {e}")
+                    raise Exception("Address form not fully loaded - missing zipcode field")
+
+            # Find all input fields within the modal
+            input_fields = form_modal_element.find_elements(By.CSS_SELECTOR, "input")
+            textarea_fields = form_modal_element.find_elements(By.CSS_SELECTOR, "textarea")
+            select_fields = form_modal_element.find_elements(By.CSS_SELECTOR, "select")
+
+            print(f"📝 Found {len(input_fields)} input fields, {len(textarea_fields)} textarea fields, and {len(select_fields)} select fields")
+
+            # You can iterate through the inputs to fill them
+            for field in input_fields:
+                field_id = field.get_attribute("id")
+                print(f"Found field: {field_id}")
+                if field_id == "givenName":
+                    field.send_keys("Ellen")
+                    print(f"✅ Filled name field: {field_id}")
+                elif field_id == "familyName":
+                    field.send_keys("Andersson")
+                    print(f"✅ Filled family name field: {field_id}")
+                elif field_id == "telNumber":
+                    field.send_keys("0704257728")
+                    print(f"✅ Filled phone number field: {field_id}")
+                elif field_id == "detailInfo":
+                    field.send_keys("Höjdvägen 3A")
+                    print(f"✅ Filled address field: {field_id}")
+                elif field_id == "cityName":
+                    field.send_keys("Saltsjö-Boo")
+                    print(f"✅ Filled city field: {field_id}")
+                elif field_id == "postalCode":
+                    field.send_keys("13242")
+                    print(f"✅ Filled postal code field: {field_id}")
+                elif field_id == "province":
+                    try:
+                        field.send_keys("Stockholms län")
+                        print("✅ Filled province field using text input")
+                    except Exception as e:
+                        print(f"⚠️ Error selecting/filling province: {e}")
+                else:
+                    print(f"⚠️ Unhandled input type: {field_id}")
+
+            # Find the submit/save button to complete the address entry
+            submit_button = form_modal_element.find_element(By.CSS_SELECTOR, "button[type='submit'], button[class*='save'], button[class*='confirm']")
+            if submit_button:
+                print("✅ Found address submit button")
+                # submit_button.click()
+
+            
+        except Exception as e:
+            print(f"⚠️ Error filling address book: {e}")
