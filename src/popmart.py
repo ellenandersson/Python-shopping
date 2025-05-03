@@ -343,7 +343,11 @@ class PopMartBot:
                 # Find elements containing the text "whole set" (case insensitive)
                 whole_set_option = driver.find_element(By.XPATH, 
                     "//*[contains(translate(text(), 'WHOLESET', 'wholeset'), 'whole set')]")
+                class_name = whole_set_option.get_attribute("class")
                 print("Found 'whole set' option")
+                if "disabled" in class_name:
+                    whole_set_option = None
+                    print("Whole set option is out of stock")
             except NoSuchElementException:
                 print("No 'whole set' option found")
                 
@@ -351,9 +355,17 @@ class PopMartBot:
                 # Find elements containing the text "single box" (case insensitive)
                 single_box_option = driver.find_element(By.XPATH, 
                     "//*[contains(translate(text(), 'SINGLEBOX', 'singlebox'), 'single box')]")
-                print("Found 'single box' option")
+                class_name = single_box_option.get_attribute("class")
+                print("Found 'single box set' option")
+                if "disabled" in class_name:
+                    single_box_option = None
+                    print("Single set option is out of stock")
             except NoSuchElementException:
                 print("No 'single box' option found")
+
+            if not whole_set_option and not single_box_option:
+                print("❌ No available variant options found.")
+                return
             
             # Select based on preference
             if PREFER_WHOLE_SET and whole_set_option:
