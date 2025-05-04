@@ -131,12 +131,12 @@ class PopMartBot:
             print("⏳ Waiting for guest checkout popup...")
             try:
                 # Try multiple XPath approaches to find the guest checkout button
-                xpaths = [
+                guest_checkout_xpaths = [
                     "//button[contains(., 'GUEST') or contains(., 'Guest')]"
                 ]
                 
                 guest_checkout_button = None
-                for xpath in xpaths:
+                for xpath in guest_checkout_xpaths:
                     try:
                         guest_checkout_button = WebDriverWait(self.driver, 2).until(
                             EC.element_to_be_clickable((By.XPATH, xpath))
@@ -164,8 +164,45 @@ class PopMartBot:
             print("🛒 At checkout.")
             self._fill_email()
             self._fill_address_book()
+
+            # Wait for the delivery options to load
+            try:
+                delivery_text = WebDriverWait(self.driver, 5).until(
+                    EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'delivery') or contains(text(), 'Delivery')]"))
+                )
+                print(f"✅ Found delivery options text: '{delivery_text.text}'")
+            except Exception as e:
+                print(f"⚠️ Delivery options text not found: {e}")
+                return False
+
+            # Wait for the proceed to pay button to appear
+            try:
+                proceed_to_pay_xpaths = [
+                    "//button[contains(., 'PAY') or contains(., 'Place Order')]",
+                ]
+                
+                proceed_to_pay_button = None
+                for xpath in proceed_to_pay_xpaths:
+                    try:
+                        proceed_to_pay_button = WebDriverWait(self.driver, 2).until(
+                            EC.element_to_be_clickable((By.XPATH, xpath))
+                        )
+                        print(f"✅ Found proceed to pay button with xpath: {xpath}")
+                        break
+                    except:
+                        continue
+                        
+                if proceed_to_pay_button:
+                    print ("✅ Proceed to pay button found, clicking...")
+                    self.driver.execute_script("arguments[0].click();", proceed_to_pay_button)
+                    print("✅ Clicked proceed to pay button")
+                else:
+                    print("❌ Could not find proceed to pay button with any of the attempted selectors")
+                    return False
+            except Exception as e:
+                print(f"⚠️ Proceed to pay button not found: {e}")
+                return False
             
-            # Don't quit the driver here - let main program decide when to quit
             return True
 
         except Exception as e:
@@ -439,6 +476,18 @@ class PopMartBot:
             email_field_confirm.click()
             print("✅ Email field filled and double confirmed")
             
+            # Wait for any loading modal or overlay to disappear
+            try:
+                print("⏳ Waiting for any modals or loading overlays to disappear...")
+                WebDriverWait(self.driver, 10).until(
+                    EC.invisibility_of_element_located((By.CSS_SELECTOR, "div[class*='modal'], div[class*='overlay'], div[class*='loading']"))
+                )
+                print("✅ All modals and overlays are gone, proceeding")
+            except Exception as e:
+                print(f"⚠️ Timeout waiting for modal to disappear: {e}")
+                # Continue anyway as the modal might not be present
+                pass
+            
         except Exception as e:
             print(f"⚠️ Error filling email: {e}")
     
@@ -549,19 +598,77 @@ class PopMartBot:
                     print(f"✅ Filled postal code field: {field_id}")
                 elif field_id == "province":
                     try:
-                        field.send_keys("Stockholms län")
-                        print("✅ Filled province field using text input")
+                        field.click()
+                        print("🔍 Clicked province field, waiting for dropdown...")
+                        try:
+                            # Then find the virtual list holder which is the scrollable element
+                            virtual_list_holder = WebDriverWait(self.driver, 3).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='rc-virtual-list-holder']"))
+                            )
+
+                            # Scroll through the virtual list to reveal all options
+                            print("🔍 Scrolling through dropdown to find Stockholm...")
+                            
+                            # Scroll in increments to reveal all options in the virtualized list
+                            found_stockholm = False
+                            for scroll_percent in [0.2, 0.4, 0.6, 0.8, 1.0]:
+                                # Scroll to different positions
+                                self.driver.execute_script(
+                                    f"arguments[0].scrollTop = arguments[0].scrollHeight * {scroll_percent};", 
+                                    virtual_list_holder
+                                )
+                                print(f"Scrolled to {scroll_percent*100}% of list height")
+                                time.sleep(0.3)  # Brief pause after scrolling
+                                
+                                # Check if Stockholm is visible after this scroll
+                                try:
+                                    stockholm_option = self.driver.find_element(
+                                        By.XPATH, 
+                                        "//div[contains(@class, 'ant-select-item') and contains(@title, 'Stockholm')]"
+                                    )
+                                    print("✅ Found Stockholm option!")
+                                    found_stockholm = True
+                                    
+                                    # Make sure it's in view and click it
+                                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", stockholm_option)
+                                    time.sleep(0.2)  # Brief pause after scrolling
+                                    
+                                    stockholm_option.click()
+                                    print("✅ Selected Stockholm option from dropdown")
+                                    break
+                                except Exception:
+                                    print(f"Stockholm not visible at {scroll_percent*100}% scroll position, continuing...")
+                            
+                            if not found_stockholm:
+                                raise Exception("Stockholm option not found after scrolling through the entire list")
+                                
+                        except Exception as e:
+                            print(f"⚠️ Error handling dropdown scrolling: {e}")
+                            raise  # Re-raise to try fallback methods
+                            
                     except Exception as e:
                         print(f"⚠️ Error selecting/filling province: {e}")
+                        try:
+                            # Last resort fallback: Try using JavaScript to set the value directly
+                            self.driver.execute_script(
+                                "arguments[0].value = 'Stockholms län'; " +
+                                "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));", 
+                                field
+                            )
+                            print("✅ Set province using direct JavaScript injection (fallback)")
+                        except Exception as e:
+                            print(f"⚠️ All province selection methods failed: {e}")
                 else:
                     print(f"⚠️ Unhandled input type: {field_id}")
 
-            # Find the submit/save button to complete the address entry
-            submit_button = form_modal_element.find_element(By.CSS_SELECTOR, "button[type='submit'], button[class*='save'], button[class*='confirm']")
-            if submit_button:
+            try:
+                # Find the submit/save button to complete the address entry
+                submit_button = form_modal_element.find_element(By.CSS_SELECTOR, "button[type='submit'], button[class*='save'], button[class*='confirm']")
                 print("✅ Found address submit button")
-                # submit_button.click()
-
+                submit_button.click()
+            except:
+                print("❌ Submit button not found")
+            
             
         except Exception as e:
             print(f"⚠️ Error filling address book: {e}")
