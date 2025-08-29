@@ -1,2 +1,4 @@
 .env
 __pycache__
+cat_images
+cat_breeds.json
